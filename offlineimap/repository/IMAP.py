@@ -115,6 +115,10 @@ class IMAPRepository(BaseRepository):
                                    "'%s' specified." % self,
                                OfflineImapError.ERROR.REPO)
 
+
+    def get_xoauth_access_token(self):
+        return self.getconf('xoauth_access_token')
+
     def getuser(self):
         user = None
         localeval = self.localeval

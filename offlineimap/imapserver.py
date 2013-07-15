@@ -77,6 +77,7 @@ class IMAPServer:
         self.connectionlock = Lock()
         self.reference = repos.getreference()
         self.idlefolders = repos.getidlefolders()
+        self.xoauth_access_token = repos.get_xoauth_access_token()
         self.gss_step = self.GSS_STATE_STEP
         self.gss_vc = None
         self.gssapi = False
@@ -126,6 +127,11 @@ class IMAPServer:
         retval = self.username + ' ' + hmac.new(passwd, challenge).hexdigest()
         self.ui.debug('imap', 'md5handler: returning %s' % retval)
         return retval
+
+    def xoauth2(self, imapobj):
+        self.ui.debug('imap', 'Attempting XOauth2 authentication')
+        auth_string = 'user=%s\1auth=Bearer %s\1\1' % (self.username, self.xoauth_access_token)
+        imapobj.authenticate('XOAUTH2', lambda x: auth_string)
 
     def plainauth(self, imapobj):
         self.ui.debug('imap', 'Attempting plain authentication')
@@ -248,22 +254,8 @@ class IMAPServer:
                                               'Using STARTTLS connection')
                                 imapobj.starttls()
 
-                            if 'AUTH=CRAM-MD5' in imapobj.capabilities:
-                                self.ui.debug('imap',
-                                           'Attempting CRAM-MD5 authentication')
-                                try:
-                                    imapobj.authenticate('CRAM-MD5',
-                                                         self.md5handler)
-                                except imapobj.error as val:
-                                    self.plainauth(imapobj)
-                            else:
-                                # Use plaintext login, unless
-                                # LOGINDISABLED (RFC2595)
-                                if 'LOGINDISABLED' in imapobj.capabilities:
-                                    raise OfflineImapError("Plaintext login "
-                                       "disabled by server. Need to use SSL?",
-                                        OfflineImapError.ERROR.REPO)
-                                self.plainauth(imapobj)
+                            self.xoauth2(imapobj)
+
                         # Would bail by here if there was a failure.
                         success = 1
                         self.goodpassword = self.password
